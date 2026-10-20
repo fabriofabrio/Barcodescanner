@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Lettore Android</title>
-    <!-- Inclusione della libreria per la scansione da fotocamera -->
+    <title>Lettore Android Definitivo</title>
+    <!-- Libreria Html5-Qrcode aggiornata -->
     <script src="https://unpkg.com" type="text/javascript"></script>
     <style>
         * { box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: #f5f6fa;
             margin: 0;
             padding: 15px;
@@ -39,7 +39,12 @@
             border-radius: 8px;
             overflow: hidden;
             margin-bottom: 15px;
-            position: relative;
+        }
+        /* Correzione per mostrare correttamente lo specchio della telecamera */
+        #interactive-camera video {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
         }
         .status-box {
             font-size: 14px;
@@ -85,15 +90,12 @@
 <div class="container">
     <h1>Lettore Codici Android</h1>
     
-    <!-- Area video per la fotocamera posteriore -->
     <div id="interactive-camera"></div>
     
-    <div id="status" class="status-box">Inizializzazione fotocamera...</div>
+    <div id="status" class="status-box">Richiesta accesso fotocamera...</div>
     
-    <!-- Lista codici concatenati -->
     <textarea id="barcode-list" readonly placeholder="I codici scansionati appariranno qui di seguito..."></textarea>
     
-    <!-- Pulsante di download file .txt -->
     <button class="btn" id="download-btn">Scarica File TXT</button>
 </div>
 
@@ -104,26 +106,10 @@
     
     let lastScannedCode = "";
     let lastScannedTime = 0;
+    let html5QrCode;
 
-    // Crea l'istanza del lettore agganciandola al div della fotocamera
-    const html5QrCode = new Html5Qrcode("interactive-camera");
-
-    // Configurazione ottimizzata per Android
-    const config = { 
-        fps: 15, 
-        qrbox: function(viewfinderWidth, viewfinderHeight) {
-            // Rende il rettangolo di mira proporzionato allo schermo dello smartphone
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const boxSize = Math.floor(minEdge * 0.7);
-            return { width: boxSize, height: Math.floor(boxSize * 0.6) };
-        }
-    };
-
-    // Callback in caso di successo nella lettura
     function onScanSuccess(decodedText, decodedResult) {
         const currentTime = Date.now();
-        
-        // Evita letture duplicate dello stesso codice prima che siano passati 2 secondi
         if (decodedText === lastScannedCode && (currentTime - lastScannedTime < 2000)) {
             return; 
         }
@@ -131,61 +117,72 @@
         lastScannedCode = decodedText;
         lastScannedTime = currentTime;
 
-        // Mostra a schermo l'ultimo codice letto
         statusDiv.innerText = `Letto: ${decodedText}`;
         statusDiv.style.color = "#27ae60";
         statusDiv.style.backgroundColor = "#e8f5e9";
 
-        // Concatena il testo nella lista andando a capo
         if (barcodeList.value === '') {
             barcodeList.value = decodedText;
         } else {
             barcodeList.value += '\n' + decodedText;
         }
 
-        // Porta lo scorrimento del testo sempre alla fine
         barcodeList.scrollTop = barcodeList.scrollHeight;
 
-        // Breve vibrazione dello smartphone per confermare la lettura (se supportata da Android)
         if (navigator.vibrate) {
             navigator.vibrate(100);
         }
     }
 
-    // Avvia la fotocamera posteriore (environment) in modo automatico
-    html5QrCode.start(
-        { facingMode: "environment" }, 
-        config, 
-        onScanSuccess
-    ).then(() => {
-        statusDiv.innerText = "Inquadra un codice a barre o un QR Code";
-        statusDiv.style.color = "#2e86de";
-        statusDiv.style.backgroundColor = "#ebf5fb";
-    }).catch((err) => {
-        statusDiv.innerText = "Errore: Attiva i permessi della fotocamera o usa HTTPS.";
-        statusDiv.style.color = "#c0392b";
-        statusDiv.style.backgroundColor = "#f9ebea";
-        console.error(err);
+    // Inizializzazione avanzata e forzata per i dispositivi mobili
+    function avviaLettore() {
+        html5QrCode = new Html5Qrcode("interactive-camera");
+        
+        // Configurazione flessibile per i sensori fotografici Android
+        const config = { 
+            fps: 15,
+            qrbox: (width, height) => {
+                const size = Math.min(width, height) * 0.75;
+                return { width: size, height: size * 0.6 };
+            }
+        };
+
+        // Chiede esplicitamente la fotocamera posteriore (environment)
+        html5QrCode.start(
+            { facingMode: "environment" }, 
+            config, 
+            onScanSuccess
+        ).then(() => {
+            statusDiv.innerText = "Inquadra un codice a barre o un QR Code";
+            statusDiv.style.color = "#2e86de";
+            statusDiv.style.backgroundColor = "#ebf5fb";
+        }).catch((err) => {
+            statusDiv.innerText = "Errore di avvio. Controlla le autorizzazioni della fotocamera.";
+            statusDiv.style.color = "#c0392b";
+            statusDiv.style.backgroundColor = "#f9ebea";
+            console.error(err);
+        });
+    }
+
+    // Avvia lo script solo dopo il caricamento completo della pagina
+    window.addEventListener('DOMContentLoaded', () => {
+        // Breve ritardo per garantire che l'hardware sia pronto
+        setTimeout(avviaLettore, 500);
     });
 
-    // Gestione del salvataggio del file su memoria Android
     downloadBtn.addEventListener('click', () => {
         const textToSave = barcodeList.value;
-        
         if (textToSave.trim() === '') {
             alert('Nessun codice in lista da salvare!');
             return;
         }
-        
         const blob = new Blob([textToSave], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        
         link.href = url;
         link.download = 'codici_android.txt';
         document.body.appendChild(link);
         link.click();
-        
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
     });
