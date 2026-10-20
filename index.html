@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Lettore Android Definitivo</title>
-    <!-- Libreria Html5-Qrcode aggiornata -->
+    <title>Lettore Android Sbloccato</title>
+    <!-- Utilizzo della versione stabile della libreria -->
     <script src="https://unpkg.com" type="text/javascript"></script>
     <style>
         * { box-sizing: border-box; }
@@ -40,7 +40,6 @@
             overflow: hidden;
             margin-bottom: 15px;
         }
-        /* Correzione per mostrare correttamente lo specchio della telecamera */
         #interactive-camera video {
             width: 100% !important;
             height: 100% !important;
@@ -92,9 +91,9 @@
     
     <div id="interactive-camera"></div>
     
-    <div id="status" class="status-box">Richiesta accesso fotocamera...</div>
+    <div id="status" class="status-box">Inizializzazione hardware bypass...</div>
     
-    <textarea id="barcode-list" readonly placeholder="I codici scansionati appariranno qui di seguito..."></textarea>
+    <textarea id="barcode-list" readonly placeholder="I codici scansionati appariranno qui..."></textarea>
     
     <button class="btn" id="download-btn">Scarica File TXT</button>
 </div>
@@ -134,20 +133,22 @@
         }
     }
 
-    // Inizializzazione avanzata e forzata per i dispositivi mobili
-    function avviaLettore() {
+    function avviaLettoreSbloccato() {
         html5QrCode = new Html5Qrcode("interactive-camera");
         
-        // Configurazione flessibile per i sensori fotografici Android
+        // CONFIGURAZIONE CRITICA: Disabilita il BarcodeDetector nativo di Android che manda in crash la fotocamera
         const config = { 
             fps: 15,
             qrbox: (width, height) => {
                 const size = Math.min(width, height) * 0.75;
                 return { width: size, height: size * 0.6 };
+            },
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: false // Forza il motore software interno escludendo i bug di Android
             }
         };
 
-        // Chiede esplicitamente la fotocamera posteriore (environment)
+        // Richiesta d'avvio fotocamera con i vincoli video standard ripristinati
         html5QrCode.start(
             { facingMode: "environment" }, 
             config, 
@@ -157,17 +158,15 @@
             statusDiv.style.color = "#2e86de";
             statusDiv.style.backgroundColor = "#ebf5fb";
         }).catch((err) => {
-            statusDiv.innerText = "Errore di avvio. Controlla le autorizzazioni della fotocamera.";
+            statusDiv.innerText = "Errore: Prova ad aprire il link in una scheda in incognito.";
             statusDiv.style.color = "#c0392b";
             statusDiv.style.backgroundColor = "#f9ebea";
             console.error(err);
         });
     }
 
-    // Avvia lo script solo dopo il caricamento completo della pagina
     window.addEventListener('DOMContentLoaded', () => {
-        // Breve ritardo per garantire che l'hardware sia pronto
-        setTimeout(avviaLettore, 500);
+        setTimeout(avviaLettoreSbloccato, 400);
     });
 
     downloadBtn.addEventListener('click', () => {
