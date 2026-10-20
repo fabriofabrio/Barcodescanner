@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Lettore POCO X3 Corretto</title>
+    <title>Lettore POCO X3 Antiduplicato</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -63,7 +63,6 @@
     let lastScannedTime = 0;
     let detector;
 
-    // Controllo disponibilità librerie native nel browser Chrome
     if ('BarcodeDetector' in window) {
         detector = new BarcodeDetector({
             formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'qr_code', 'upc_a']
@@ -74,7 +73,6 @@
 
     async function avviaFotocameraNativa() {
         try {
-            // Configurazione specifica per bypassare lo sdoppiamento lenti di Xiaomi
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { 
                     facingMode: "environment",
@@ -91,7 +89,7 @@
                 analizzaFotogrammi();
             };
         } catch (err) {
-            statusDiv.innerText = "Fotocamera bloccata. Chiudi altre app aperte (es. Fotocamera/WhatsApp).";
+            statusDiv.innerText = "Fotocamera bloccata. Chiudi altre app aperte.";
             statusDiv.style.color = "#c0392b";
             statusDiv.style.backgroundColor = "#f9ebea";
         }
@@ -102,9 +100,10 @@
             if (video.readyState === video.HAVE_ENOUGH_DATA && detector) {
                 try {
                     const barcodes = await detector.detect(video);
-                    // CORREZIONE PUNTARE ALL'ARRAY: Estrae l'indice [0] corretto per Android
                     if (barcodes && barcodes.length > 0) {
-                        gestisciCodiceLetto(barcodes[0].rawValue);
+                        // Estrae la stringa del codice rilevato dal motore nativo di Chrome
+                        const codiceRilevato = barcodes[0].rawValue;
+                        gestisciCodiceLetto(codiceRilevato);
                     }
                 } catch (e) {
                     console.error(e);
@@ -119,8 +118,9 @@
         if (!decodedText) return;
         const currentTime = Date.now();
         
-        // Evita scansioni multiple dello stesso codice prima di 2.5 secondi
-        if (decodedText === lastScannedCode && (currentTime - lastScannedTime < 2500)) {
+        // NUOVA LOGICA: Se il codice è lo stesso di prima, bloccalo per 6 secondi (6000 millisecondi)
+        // Se invece il codice è diverso, lo memorizza all'istante bypassando l'attesa
+        if (decodedText === lastScannedCode && (currentTime - lastScannedTime < 6000)) {
             return; 
         }
 
@@ -138,7 +138,6 @@
         }
         barcodeList.scrollTop = barcodeList.scrollHeight;
 
-        // Feedback con vibrazione tipico Android
         if (navigator.vibrate) {
             navigator.vibrate(100);
         }
