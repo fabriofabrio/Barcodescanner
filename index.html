@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Lettore POCO X3</title>
+    <title>Lettore POCO X3 Corretto</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -48,7 +48,7 @@
     <div class="video-wrapper">
         <video id="webcam" autoplay playsinline muted></video>
     </div>
-    <div id="status" class="status-box">Inizializzazione telecamera Xiaomi...</div>
+    <div id="status" class="status-box">Inizializzazione fotocamera...</div>
     <textarea id="barcode-list" readonly placeholder="I codici scansionati appariranno qui..."></textarea>
     <button class="btn" id="download-btn">Scarica File TXT</button>
 </div>
@@ -63,18 +63,24 @@
     let lastScannedTime = 0;
     let detector;
 
+    // Controllo disponibilità librerie native nel browser Chrome
     if ('BarcodeDetector' in window) {
         detector = new BarcodeDetector({
-            formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'qr_code']
+            formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'qr_code', 'upc_a']
         });
     } else {
-        statusDiv.innerText = "Errore: Aggiorna Google Chrome sul tuo telefono.";
+        statusDiv.innerText = "Errore: Aggiorna l'app Google Chrome sul tuo POCO.";
     }
 
-    async function avviaFotocamera() {
+    async function avviaFotocameraNativa() {
         try {
+            // Configurazione specifica per bypassare lo sdoppiamento lenti di Xiaomi
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment" },
+                video: { 
+                    facingMode: "environment",
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                },
                 audio: false
             });
             video.srcObject = stream;
@@ -82,21 +88,21 @@
                 statusDiv.innerText = "Inquadra un codice a barre o un QR";
                 statusDiv.style.color = "#2e86de";
                 statusDiv.style.backgroundColor = "#ebf5fb";
-                analizzaFrame();
+                analizzaFotogrammi();
             };
         } catch (err) {
-            statusDiv.innerText = "Attiva il permesso Fotocamera nei dettagli dell'app Chrome.";
+            statusDiv.innerText = "Fotocamera bloccata. Chiudi altre app aperte (es. Fotocamera/WhatsApp).";
             statusDiv.style.color = "#c0392b";
             statusDiv.style.backgroundColor = "#f9ebea";
         }
     }
 
-    function analizzaFrame() {
-        async function scansione() {
+    function analizzaFotogrammi() {
+        async function loop() {
             if (video.readyState === video.HAVE_ENOUGH_DATA && detector) {
                 try {
                     const barcodes = await detector.detect(video);
-                    // CORREZIONE CRITICA: Estrae correttamente l'elemento dall'array nativo di Chrome
+                    // CORREZIONE PUNTARE ALL'ARRAY: Estrae l'indice [0] corretto per Android
                     if (barcodes && barcodes.length > 0) {
                         gestisciCodiceLetto(barcodes[0].rawValue);
                     }
@@ -104,14 +110,16 @@
                     console.error(e);
                 }
             }
-            requestAnimationFrame(scansione);
+            requestAnimationFrame(loop);
         }
-        requestAnimationFrame(scansione);
+        requestAnimationFrame(loop);
     }
 
     function gestisciCodiceLetto(decodedText) {
         if (!decodedText) return;
         const currentTime = Date.now();
+        
+        // Evita scansioni multiple dello stesso codice prima di 2.5 secondi
         if (decodedText === lastScannedCode && (currentTime - lastScannedTime < 2500)) {
             return; 
         }
@@ -130,24 +138,25 @@
         }
         barcodeList.scrollTop = barcodeList.scrollHeight;
 
+        // Feedback con vibrazione tipico Android
         if (navigator.vibrate) {
             navigator.vibrate(100);
         }
     }
 
-    window.addEventListener('DOMContentLoaded', avviaFotocamera);
+    window.addEventListener('DOMContentLoaded', avviaFotocameraNativa);
 
     downloadBtn.addEventListener('click', () => {
         const textToSave = barcodeList.value;
         if (textToSave.trim() === '') {
-            alert('Nessun codice letto da salvare!');
+            alert('Nessun codice salvato nella lista!');
             return;
         }
         const blob = new Blob([textToSave], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'codici.txt';
+        link.download = 'codici_letti.txt';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
