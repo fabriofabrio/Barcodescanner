@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Lettore Professionale POCO</title>
+    <title>Lettore Logistica Pro</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -32,18 +32,19 @@
             background: #000;
             border-radius: 8px;
             overflow: hidden;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
+            position: relative;
         }
         #webcam { width: 100%; height: 100%; object-fit: cover; }
         .status-box { font-size: 14px; color: #e67e22; margin-bottom: 15px; font-weight: bold; padding: 8px; background: #fdf2e9; border-radius: 6px; }
         textarea { width: 100%; height: 160px; padding: 10px; border: 1px solid #dcdde1; border-radius: 6px; font-family: monospace; font-size: 14px; resize: none; background-color: #f8f9fa; margin-bottom: 15px; }
-        .btn { color: white; border: none; padding: 14px; font-size: 15px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 10px; transition: background-color 0.2s; }
+        .btn { color: white; border: none; padding: 12px; font-size: 14px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 10px; transition: background-color 0.2s; text-transform: uppercase; }
+        #flash-btn { background-color: #f1c40f; color: #2c3e50; box-shadow: 0 2px 5px rgba(241, 196, 15, 0.3); }
         #save-tag-btn { background-color: #2980b9; box-shadow: 0 2px 5px rgba(41, 128, 185, 0.3); }
-        #save-tag-btn:active { background-color: #2471a3; }
+        #delete-last-btn { background-color: #e67e22; box-shadow: 0 2px 5px rgba(230, 126, 34, 0.3); }
         #download-btn { background-color: #2ecc71; box-shadow: 0 2px 5px rgba(46, 204, 113, 0.3); }
-        #download-btn:active { background-color: #27ae60; }
         #reset-btn { background-color: #e74c3c; box-shadow: 0 2px 5px rgba(231, 76, 60, 0.3); }
-        #reset-btn:active { background-color: #c0392b; }
+        .btn:active { opacity: 0.9; }
     </style>
 </head>
 <body>
@@ -53,56 +54,82 @@
     <div class="video-wrapper">
         <video id="webcam" autoplay playsinline muted></video>
     </div>
-    <div id="status" class="status-box">Inizializzazione fotocamera...</div>
+    
+    <button class="btn" id="flash-btn">Accendi Flash 🔦</button>
+    <div id="status" class="status-box">Inizializzazione...</div>
     
     <textarea id="barcode-list" readonly placeholder="I codici scansionati appariranno qui..."></textarea>
     
-    <button class="btn" id="save-tag-btn">SALVA / CHIUDI TARGHETTA</button>
-    <button class="btn" id="download-btn">SCARICA FILE TXT FINALE</button>
-    <button class="btn" id="reset-btn">NUOVO FILE (AZZERA TUTTO)</button>
+    <button class="btn" id="save-tag-btn">Salva / Chiudi Targhetta</button>
+    <button class="btn" id="delete-last-btn">Cancella Ultima Targhetta</button>
+    <button class="btn" id="download-btn">Scarica File TXT Finale</button>
+    <button class="btn" id="reset-btn">Nuovo File (Azzera Tutto)</button>
 </div>
 
 <script>
     const video = document.getElementById('webcam');
     const barcodeList = document.getElementById('barcode-list');
+    const flashBtn = document.getElementById('flash-btn');
     const saveTagBtn = document.getElementById('save-tag-btn');
+    const deleteLastBtn = document.getElementById('delete-last-btn');
     const downloadBtn = document.getElementById('download-btn');
     const resetBtn = document.getElementById('reset-btn');
     const statusDiv = document.getElementById('status');
     
-    // Registro globale per evitare duplicati nell'intera sessione
     let codiciScansionatiSessione = new Set();
-    // Flag per gestire la riga vuota di spaziatura alla ripartenza di una nuova targhetta
-    let inserisciSpaziaturaProssimoCodice = false;
     let detector;
+    let videoTrack = null;
+    let flashAttivo = false;
+    
+    let contatoreTarghette = 1;
+    let storicoTarghette = [];
+    let codiciTarghettaCorrente = [];
 
     if ('BarcodeDetector' in window) {
         detector = new BarcodeDetector({
             formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'qr_code', 'upc_a']
         });
     } else {
-        statusDiv.innerText = "Errore: Aggiorna l'app Google Chrome sul tuo POCO.";
+        statusDiv.innerText = "Errore: Aggiorna Google Chrome.";
     }
 
     async function avviaFotocameraNativa() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } },
+                video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
                 audio: false
             });
             video.srcObject = stream;
+            videoTrack = stream.getVideoTracks()[0];
+            
             video.onloadedmetadata = () => {
-                statusDiv.innerText = "Inquadra i codici della targhetta";
+                statusDiv.innerText = "Inquadra la TARGHETTA N. " + contatoreTarghette;
                 statusDiv.style.color = "#2e86de";
                 statusDiv.style.backgroundColor = "#ebf5fb";
                 analizzaFotogrammi();
             };
         } catch (err) {
-            statusDiv.innerText = "Fotocamera bloccata. Chiudi altre app in background.";
-            statusDiv.style.color = "#c0392b";
-            statusDiv.style.backgroundColor = "#f9ebea";
+            statusDiv.innerText = "Fotocamera bloccata. Chiudi altre app.";
         }
     }
+
+    flashBtn.addEventListener('click', async () => {
+        if (!videoTrack) return;
+        try {
+            const capabilities = videoTrack.getCapabilities();
+            if (!capabilities.torch) {
+                alert("Flash non supportato su questa lente.");
+                return;
+            }
+            flashAttivo = !flashAttivo;
+            await videoTrack.applyConstraints({
+                advanced: [{ torch: flashAttivo }]
+            });
+            flashBtn.innerText = flashAttivo ? "Spegni Flash 🚫" : "Accendi Flash 🔦";
+        } catch (e) {
+            console.error(e);
+        }
+    });
 
     function analizzaFotogrammi() {
         async function loop() {
@@ -123,83 +150,105 @@
 
     function gestisciCodiceLetto(decodedText) {
         if (!decodedText) return;
+        if (codiciScansionatiSessione.has(decodedText)) return;
 
-        // REGOLA 1: Se il codice è già stato letto in questa sessione, viene ignorato per sempre
-        if (codiciScansionatiSessione.has(decodedText)) {
-            return; 
-        }
-
-        // Aggiunge il codice al registro anti-duplicati della sessione
         codiciScansionatiSessione.add(decodedText);
+        codiciTarghettaCorrente.push(decodedText);
 
-        statusDiv.innerText = `Rilevato: ${decodedText}`;
+        statusDiv.innerText = `Letto (${codiciTarghettaCorrente.length}): ${decodedText}`;
         statusDiv.style.color = "#27ae60";
         statusDiv.style.backgroundColor = "#e8f5e9";
 
-        // Costruisce la stringa da inserire
-        let testoDaAggiungere = "";
-        
-        if (barcodeList.value === '') {
-            testoDaAggiungere = decodedText;
-        } else {
-            // REGOLA 2: Se abbiamo chiuso la targhetta precedente, aggiunge una riga vuota di spaziatura
-            if (inserisciSpaziaturaProssimoCodice) {
-                testoDaAggiungere = '\n\n' + decodedText;
-                inserisciSpaziaturaProssimoCodice = false; // Resetta il flag
-            } else {
-                testoDaAggiungere = '\n' + decodedText;
-            }
-        }
-
-        barcodeList.value += testoDaAggiungere;
-        barcodeList.scrollTop = barcodeList.scrollHeight;
+        aggiornaSchermoAreaTesto();
 
         if (navigator.vibrate) {
             navigator.vibrate(100);
         }
     }
 
-    // PULSANTE 1: Chiude la targhetta attuale e si prepara alla successiva spaziata
+    function aggiornaSchermoAreaTesto() {
+        let testoFinale = "";
+        
+        storicoTarghette.forEach(targhetta => {
+            testoFinale += `--- TARGHETTA N. ${targhetta.numero} ---\n`;
+            testoFinale += targhetta.codici.join('\n') + '\n\n';
+        });
+        
+        if (codiciTarghettaCorrente.length > 0) {
+            testoFinale += `--- TARGHETTA N. ${contatoreTarghette} (Scansione...) ---\n`;
+            testoFinale += codiciTarghettaCorrente.join('\n');
+        }
+        
+        barcodeList.value = testoFinale;
+        barcodeList.scrollTop = barcodeList.scrollHeight;
+    }
+
     saveTagBtn.addEventListener('click', () => {
-        if (barcodeList.value.trim() === '') {
-            alert('Nessun codice scansionato nella targhetta attuale!');
+        if (codiciTarghettaCorrente.length === 0) {
+            alert('Nessun codice letto!');
             return;
         }
-        inserisciSpaziaturaProssimoCodice = true;
-        statusDiv.innerText = "Targhetta salvata nel report! Passa alla prossima.";
-        statusDiv.style.color = "#2980b9";
-        statusDiv.style.backgroundColor = "#ebf5fb";
         
-        if (navigator.vibrate) {
-            navigator.vibrate([100, 50, 100]); // Doppio impulso di conferma
+        storicoTarghette.push({
+            numero: contatoreTarghette,
+            codici: [...codiciTarghettaCorrente]
+        });
+        
+        contatoreTarghette++;
+        codiciTarghettaCorrente = [];
+        aggiornaSchermoAreaTesto();
+        
+        statusDiv.innerText = "Targhetta salvata. Inquadra la N. " + contatoreTarghette;
+        statusDiv.style.color = "#2e86de";
+        statusDiv.style.backgroundColor = "#ebf5fb";
+        if (navigator.vibrate) navigator.vibrate();
+    });
+
+    deleteLastBtn.addEventListener('click', () => {
+        if (storicoTarghette.length === 0) {
+            alert('Nessuna targhetta salvata.');
+            return;
+        }
+        
+        if (confirm(`Cancellare la Targhetta N. ${storicoTarghette.length}?`)) {
+            const ultimaTarghettaRossa = storicoTarghette.pop();
+            ultimaTarghettaRossa.codici.forEach(codice => {
+                codiciScansionatiSessione.delete(codice);
+            });
+            
+            contatoreTarghette = ultimaTarghettaRossa.numero;
+            aggiornaSchermoAreaTesto();
+            
+            statusDiv.innerText = "Rimossa. Ripeti la N. " + contatoreTarghette;
+            statusDiv.style.color = "#c0392b";
+            statusDiv.style.backgroundColor = "#f9ebea";
         }
     });
 
-    // PULSANTE 2: Scarica il file di testo cumulativo completo
     downloadBtn.addEventListener('click', () => {
-        const textToSave = barcodeList.value;
-        if (textToSave.trim() === '') {
-            alert('Nessun dato da scaricare!');
+        if (storicoTarghette.length === 0 && codiciTarghettaCorrente.length === 0) {
+            alert('Nessun dato!');
             return;
         }
-        const blob = new Blob([textToSave], { type: 'text/plain;charset=utf-8' });
+        const blob = new Blob([barcodeList.value], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'sessione_scansione.txt';
+        link.download = 'report_targhette.txt';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
     });
 
-    // PULSANTE 3: Resetta la memoria per passare a un'altra serie di prodotti
     resetBtn.addEventListener('click', () => {
-        if (confirm('Sei sicuro di voler iniziare un nuovo file? Tutti i codici correnti verranno persi a schermo.')) {
+        if (confirm('Azzerare tutto il file corrente?')) {
             barcodeList.value = '';
             codiciScansionatiSessione.clear();
-            inserisciSpaziaturaProssimoCodice = false;
-            statusDiv.innerText = "Memoria azzerata. Pronto per una nuova serie.";
+            storicoTarghette = [];
+            codiciTarghettaCorrente = [];
+            contatoreTarghette = 1;
+            statusDiv.innerText = "Pronto per Targhetta N. 1";
             statusDiv.style.color = "#e67e22";
             statusDiv.style.backgroundColor = "#fdf2e9";
         }
