@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Lettore Android Sbloccato</title>
-    <!-- Utilizzo della versione stabile della libreria -->
-    <script src="https://unpkg.com" type="text/javascript"></script>
+    <title>Lettore POCO X3</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -27,12 +25,8 @@
             max-width: 450px;
             text-align: center;
         }
-        h1 {
-            color: #2f3640;
-            margin: 0 0 15px 0;
-            font-size: 20px;
-        }
-        #interactive-camera {
+        h1 { color: #2f3640; margin: 0 0 15px 0; font-size: 20px; }
+        .video-wrapper {
             width: 100%;
             aspect-ratio: 4 / 3;
             background: #000;
@@ -40,76 +34,85 @@
             overflow: hidden;
             margin-bottom: 15px;
         }
-        #interactive-camera video {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: cover !important;
-        }
-        .status-box {
-            font-size: 14px;
-            color: #e67e22;
-            margin-bottom: 15px;
-            font-weight: bold;
-            padding: 8px;
-            background: #fdf2e9;
-            border-radius: 6px;
-            word-break: break-all;
-        }
-        textarea {
-            width: 100%;
-            height: 140px;
-            padding: 10px;
-            border: 1px solid #dcdde1;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 14px;
-            resize: none;
-            background-color: #f8f9fa;
-            margin-bottom: 15px;
-        }
-        .btn {
-            background-color: #4cd137;
-            color: white;
-            border: none;
-            padding: 14px;
-            font-size: 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            width: 100%;
-            font-weight: bold;
-            box-shadow: 0 2px 5px rgba(76, 209, 55, 0.3);
-        }
-        .btn:active {
-            background-color: #44bd32;
-        }
+        #webcam { width: 100%; height: 100%; object-fit: cover; }
+        .status-box { font-size: 14px; color: #e67e22; margin-bottom: 15px; font-weight: bold; padding: 8px; background: #fdf2e9; border-radius: 6px; }
+        textarea { width: 100%; height: 140px; padding: 10px; border: 1px solid #dcdde1; border-radius: 6px; font-family: monospace; font-size: 14px; resize: none; background-color: #f8f9fa; margin-bottom: 15px; }
+        .btn { color: white; border: none; padding: 14px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; background-color: #2ecc71; box-shadow: 0 2px 5px rgba(46, 204, 113, 0.3); }
+        .btn:active { background-color: #27ae60; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>Lettore Codici Android</h1>
-    
-    <div id="interactive-camera"></div>
-    
-    <div id="status" class="status-box">Inizializzazione hardware bypass...</div>
-    
+    <div class="video-wrapper">
+        <video id="webcam" autoplay playsinline muted></video>
+    </div>
+    <div id="status" class="status-box">Inizializzazione telecamera Xiaomi...</div>
     <textarea id="barcode-list" readonly placeholder="I codici scansionati appariranno qui..."></textarea>
-    
     <button class="btn" id="download-btn">Scarica File TXT</button>
 </div>
 
 <script>
+    const video = document.getElementById('webcam');
     const barcodeList = document.getElementById('barcode-list');
     const downloadBtn = document.getElementById('download-btn');
     const statusDiv = document.getElementById('status');
     
     let lastScannedCode = "";
     let lastScannedTime = 0;
-    let html5QrCode;
+    let detector;
 
-    function onScanSuccess(decodedText, decodedResult) {
+    if ('BarcodeDetector' in window) {
+        detector = new BarcodeDetector({
+            formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'qr_code']
+        });
+    } else {
+        statusDiv.innerText = "Errore: Aggiorna Google Chrome sul tuo telefono.";
+    }
+
+    async function avviaFotocamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" },
+                audio: false
+            });
+            video.srcObject = stream;
+            video.onloadedmetadata = () => {
+                statusDiv.innerText = "Inquadra un codice a barre o un QR";
+                statusDiv.style.color = "#2e86de";
+                statusDiv.style.backgroundColor = "#ebf5fb";
+                analizzaFrame();
+            };
+        } catch (err) {
+            statusDiv.innerText = "Attiva il permesso Fotocamera nei dettagli dell'app Chrome.";
+            statusDiv.style.color = "#c0392b";
+            statusDiv.style.backgroundColor = "#f9ebea";
+        }
+    }
+
+    function analizzaFrame() {
+        async function scansione() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA && detector) {
+                try {
+                    const barcodes = await detector.detect(video);
+                    // CORREZIONE CRITICA: Estrae correttamente l'elemento dall'array nativo di Chrome
+                    if (barcodes && barcodes.length > 0) {
+                        gestisciCodiceLetto(barcodes[0].rawValue);
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+            requestAnimationFrame(scansione);
+        }
+        requestAnimationFrame(scansione);
+    }
+
+    function gestisciCodiceLetto(decodedText) {
+        if (!decodedText) return;
         const currentTime = Date.now();
-        if (decodedText === lastScannedCode && (currentTime - lastScannedTime < 2000)) {
+        if (decodedText === lastScannedCode && (currentTime - lastScannedTime < 2500)) {
             return; 
         }
 
@@ -125,7 +128,6 @@
         } else {
             barcodeList.value += '\n' + decodedText;
         }
-
         barcodeList.scrollTop = barcodeList.scrollHeight;
 
         if (navigator.vibrate) {
@@ -133,53 +135,19 @@
         }
     }
 
-    function avviaLettoreSbloccato() {
-        html5QrCode = new Html5Qrcode("interactive-camera");
-        
-        // CONFIGURAZIONE CRITICA: Disabilita il BarcodeDetector nativo di Android che manda in crash la fotocamera
-        const config = { 
-            fps: 15,
-            qrbox: (width, height) => {
-                const size = Math.min(width, height) * 0.75;
-                return { width: size, height: size * 0.6 };
-            },
-            experimentalFeatures: {
-                useBarCodeDetectorIfSupported: false // Forza il motore software interno escludendo i bug di Android
-            }
-        };
-
-        // Richiesta d'avvio fotocamera con i vincoli video standard ripristinati
-        html5QrCode.start(
-            { facingMode: "environment" }, 
-            config, 
-            onScanSuccess
-        ).then(() => {
-            statusDiv.innerText = "Inquadra un codice a barre o un QR Code";
-            statusDiv.style.color = "#2e86de";
-            statusDiv.style.backgroundColor = "#ebf5fb";
-        }).catch((err) => {
-            statusDiv.innerText = "Errore: Prova ad aprire il link in una scheda in incognito.";
-            statusDiv.style.color = "#c0392b";
-            statusDiv.style.backgroundColor = "#f9ebea";
-            console.error(err);
-        });
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-        setTimeout(avviaLettoreSbloccato, 400);
-    });
+    window.addEventListener('DOMContentLoaded', avviaFotocamera);
 
     downloadBtn.addEventListener('click', () => {
         const textToSave = barcodeList.value;
         if (textToSave.trim() === '') {
-            alert('Nessun codice in lista da salvare!');
+            alert('Nessun codice letto da salvare!');
             return;
         }
         const blob = new Blob([textToSave], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'codici_android.txt';
+        link.download = 'codici.txt';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
