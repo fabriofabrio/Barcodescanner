@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Lettore POCO X3 Antiduplicato</title>
+    <title>Lettore Professionale POCO</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -36,31 +36,44 @@
         }
         #webcam { width: 100%; height: 100%; object-fit: cover; }
         .status-box { font-size: 14px; color: #e67e22; margin-bottom: 15px; font-weight: bold; padding: 8px; background: #fdf2e9; border-radius: 6px; }
-        textarea { width: 100%; height: 140px; padding: 10px; border: 1px solid #dcdde1; border-radius: 6px; font-family: monospace; font-size: 14px; resize: none; background-color: #f8f9fa; margin-bottom: 15px; }
-        .btn { color: white; border: none; padding: 14px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; background-color: #2ecc71; box-shadow: 0 2px 5px rgba(46, 204, 113, 0.3); }
-        .btn:active { background-color: #27ae60; }
+        textarea { width: 100%; height: 160px; padding: 10px; border: 1px solid #dcdde1; border-radius: 6px; font-family: monospace; font-size: 14px; resize: none; background-color: #f8f9fa; margin-bottom: 15px; }
+        .btn { color: white; border: none; padding: 14px; font-size: 15px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 10px; transition: background-color 0.2s; }
+        #save-tag-btn { background-color: #2980b9; box-shadow: 0 2px 5px rgba(41, 128, 185, 0.3); }
+        #save-tag-btn:active { background-color: #2471a3; }
+        #download-btn { background-color: #2ecc71; box-shadow: 0 2px 5px rgba(46, 204, 113, 0.3); }
+        #download-btn:active { background-color: #27ae60; }
+        #reset-btn { background-color: #e74c3c; box-shadow: 0 2px 5px rgba(231, 76, 60, 0.3); }
+        #reset-btn:active { background-color: #c0392b; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Lettore Codici Android</h1>
+    <h1>Lettore Codici Logistica</h1>
     <div class="video-wrapper">
         <video id="webcam" autoplay playsinline muted></video>
     </div>
     <div id="status" class="status-box">Inizializzazione fotocamera...</div>
+    
     <textarea id="barcode-list" readonly placeholder="I codici scansionati appariranno qui..."></textarea>
-    <button class="btn" id="download-btn">Scarica File TXT</button>
+    
+    <button class="btn" id="save-tag-btn">SALVA / CHIUDI TARGHETTA</button>
+    <button class="btn" id="download-btn">SCARICA FILE TXT FINALE</button>
+    <button class="btn" id="reset-btn">NUOVO FILE (AZZERA TUTTO)</button>
 </div>
 
 <script>
     const video = document.getElementById('webcam');
     const barcodeList = document.getElementById('barcode-list');
+    const saveTagBtn = document.getElementById('save-tag-btn');
     const downloadBtn = document.getElementById('download-btn');
+    const resetBtn = document.getElementById('reset-btn');
     const statusDiv = document.getElementById('status');
     
-    let lastScannedCode = "";
-    let lastScannedTime = 0;
+    // Registro globale per evitare duplicati nell'intera sessione
+    let codiciScansionatiSessione = new Set();
+    // Flag per gestire la riga vuota di spaziatura alla ripartenza di una nuova targhetta
+    let inserisciSpaziaturaProssimoCodice = false;
     let detector;
 
     if ('BarcodeDetector' in window) {
@@ -74,22 +87,18 @@
     async function avviaFotocameraNativa() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
-                    facingMode: "environment",
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
-                },
+                video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } },
                 audio: false
             });
             video.srcObject = stream;
             video.onloadedmetadata = () => {
-                statusDiv.innerText = "Inquadra un codice a barre o un QR";
+                statusDiv.innerText = "Inquadra i codici della targhetta";
                 statusDiv.style.color = "#2e86de";
                 statusDiv.style.backgroundColor = "#ebf5fb";
                 analizzaFotogrammi();
             };
         } catch (err) {
-            statusDiv.innerText = "Fotocamera bloccata. Chiudi altre app aperte.";
+            statusDiv.innerText = "Fotocamera bloccata. Chiudi altre app in background.";
             statusDiv.style.color = "#c0392b";
             statusDiv.style.backgroundColor = "#f9ebea";
         }
@@ -101,9 +110,7 @@
                 try {
                     const barcodes = await detector.detect(video);
                     if (barcodes && barcodes.length > 0) {
-                        // Estrae la stringa del codice rilevato dal motore nativo di Chrome
-                        const codiceRilevato = barcodes[0].rawValue;
-                        gestisciCodiceLetto(codiceRilevato);
+                        gestisciCodiceLetto(barcodes[0].rawValue);
                     }
                 } catch (e) {
                     console.error(e);
@@ -116,26 +123,35 @@
 
     function gestisciCodiceLetto(decodedText) {
         if (!decodedText) return;
-        const currentTime = Date.now();
-        
-        // NUOVA LOGICA: Se il codice è lo stesso di prima, bloccalo per 6 secondi (6000 millisecondi)
-        // Se invece il codice è diverso, lo memorizza all'istante bypassando l'attesa
-        if (decodedText === lastScannedCode && (currentTime - lastScannedTime < 6000)) {
+
+        // REGOLA 1: Se il codice è già stato letto in questa sessione, viene ignorato per sempre
+        if (codiciScansionatiSessione.has(decodedText)) {
             return; 
         }
 
-        lastScannedCode = decodedText;
-        lastScannedTime = currentTime;
+        // Aggiunge il codice al registro anti-duplicati della sessione
+        codiciScansionatiSessione.add(decodedText);
 
-        statusDiv.innerText = `Letto: ${decodedText}`;
+        statusDiv.innerText = `Rilevato: ${decodedText}`;
         statusDiv.style.color = "#27ae60";
         statusDiv.style.backgroundColor = "#e8f5e9";
 
+        // Costruisce la stringa da inserire
+        let testoDaAggiungere = "";
+        
         if (barcodeList.value === '') {
-            barcodeList.value = decodedText;
+            testoDaAggiungere = decodedText;
         } else {
-            barcodeList.value += '\n' + decodedText;
+            // REGOLA 2: Se abbiamo chiuso la targhetta precedente, aggiunge una riga vuota di spaziatura
+            if (inserisciSpaziaturaProssimoCodice) {
+                testoDaAggiungere = '\n\n' + decodedText;
+                inserisciSpaziaturaProssimoCodice = false; // Resetta il flag
+            } else {
+                testoDaAggiungere = '\n' + decodedText;
+            }
         }
+
+        barcodeList.value += testoDaAggiungere;
         barcodeList.scrollTop = barcodeList.scrollHeight;
 
         if (navigator.vibrate) {
@@ -143,24 +159,53 @@
         }
     }
 
-    window.addEventListener('DOMContentLoaded', avviaFotocameraNativa);
+    // PULSANTE 1: Chiude la targhetta attuale e si prepara alla successiva spaziata
+    saveTagBtn.addEventListener('click', () => {
+        if (barcodeList.value.trim() === '') {
+            alert('Nessun codice scansionato nella targhetta attuale!');
+            return;
+        }
+        inserisciSpaziaturaProssimoCodice = true;
+        statusDiv.innerText = "Targhetta salvata nel report! Passa alla prossima.";
+        statusDiv.style.color = "#2980b9";
+        statusDiv.style.backgroundColor = "#ebf5fb";
+        
+        if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100]); // Doppio impulso di conferma
+        }
+    });
 
+    // PULSANTE 2: Scarica il file di testo cumulativo completo
     downloadBtn.addEventListener('click', () => {
         const textToSave = barcodeList.value;
         if (textToSave.trim() === '') {
-            alert('Nessun codice salvato nella lista!');
+            alert('Nessun dato da scaricare!');
             return;
         }
         const blob = new Blob([textToSave], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'codici_letti.txt';
+        link.download = 'sessione_scansione.txt';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
     });
+
+    // PULSANTE 3: Resetta la memoria per passare a un'altra serie di prodotti
+    resetBtn.addEventListener('click', () => {
+        if (confirm('Sei sicuro di voler iniziare un nuovo file? Tutti i codici correnti verranno persi a schermo.')) {
+            barcodeList.value = '';
+            codiciScansionatiSessione.clear();
+            inserisciSpaziaturaProssimoCodice = false;
+            statusDiv.innerText = "Memoria azzerata. Pronto per una nuova serie.";
+            statusDiv.style.color = "#e67e22";
+            statusDiv.style.backgroundColor = "#fdf2e9";
+        }
+    });
+
+    window.addEventListener('DOMContentLoaded', avviaFotocameraNativa);
 </script>
 
 </body>
