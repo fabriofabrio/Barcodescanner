@@ -14,7 +14,7 @@
         .input-group input{width:100%;padding:10px;border:1px solid #ced6e0;border-radius:6px;font-size:14px;}
         .video-wrapper{width:100%;aspect-ratio:4/3;background:#000;border-radius:8px;overflow:hidden;margin-bottom:10px;position:relative;}
         #webcam{width:100%;height:100%;object-fit:cover;}
-        .status-box{font-size:14px;color Rama:#e67e22;margin-bottom:15px;font-weight:bold;padding:8px;background:#fdf2e9;border-radius:6px;}
+        .status-box{font-size:14px;color:#e67e22;margin-bottom:15px;font-weight:bold;padding:8px;background:#fdf2e9;border-radius:6px;}
         textarea{width:100%;height:150px;padding:10px;border:1px solid #dcdde1;border-radius:6px;font-family:monospace;font-size:14px;resize:none;background-color:#f8f9fa;margin-bottom:15px;}
         .btn{color:white;border:none;padding:12px;font-size:14px;border-radius:6px;cursor:pointer;width:100%;font-weight:bold;margin-bottom:10px;text-transform:uppercase;}
         #flash-btn{background-color:#f1c40f;color:#2c3e50;}
@@ -47,81 +47,144 @@
 <script>
     const video=document.getElementById('webcam'),barcodeList=document.getElementById('barcode-list'),categoryInput=document.getElementById('category-input'),flashBtn=document.getElementById('flash-btn'),saveTagBtn=document.getElementById('save-tag-btn'),deleteLastBtn=document.getElementById('delete-last-btn'),downloadBtn=document.getElementById('download-btn'),whatsappBtn=document.getElementById('whatsapp-btn'),emailBtn=document.getElementById('email-btn'),resetBtn=document.getElementById('reset-btn'),statusDiv=document.getElementById('status');
     let codiciScansionatiSessione=new Set(),detector,videoTrack=null,flashAttivo=false,contatoreTarghette=1,storicoTarghette=[],codiciTarghettaCorrente=[];
-    if('BarcodeDetector' in window){detector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','qr_code','upc_a']});}else{statusDiv.innerText="Errore: Aggiorna Chrome.";}
+    
+    if('BarcodeDetector' in window){
+        detector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','qr_code','upc_a']});
+    }else{
+        statusDiv.innerText="Errore: Aggiorna Chrome.";
+    }
+
     async function avviaFotocameraNativa(){
         try{
             const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1280},height:{ideal:720}},audio:false});
-            video.srcObject=stream;if(stream.getVideoTracks().length>0){videoTrack=stream.getVideoTracks()[0];}
-            video.onloadedmetadata=()=>{statusDiv.innerText="Inquadra la TARGHETTA N. "+contatoreTarghette;statusDiv.style.color="#2e86de";statusDiv.style.backgroundColor="#ebf5fb";analizzaFotogrammi();};
-        }catch(err){statusDiv.innerText="Fotocamera bloccata. Chiudi altre app.";}
+            video.srcObject=stream;
+            if(stream.getVideoTracks().length>0){
+                videoTrack=stream.getVideoTracks()[0];
+            }
+            video.onloadedmetadata=()=>{
+                statusDiv.innerText="Inquadra la TARGHETTA N. "+contatoreTarghette;
+                statusDiv.style.color="#2e86de";
+                statusDiv.style.backgroundColor="#ebf5fb";
+                analizzaFotogrammi();
+            };
+        }catch(err){
+            statusDiv.innerText="Fotocamera bloccata. Chiudi altre app.";
+        }
     }
+
     flashBtn.addEventListener('click',async()=>{
         if(!videoTrack)return;
         try{
-            const caps=videoTrack.getCapabilities();if(!caps.torch){alert("Flash non supportato.");return;}
-            flashAttivo=!flashAttivo;await videoTrack.applyConstraints({advanced:[{torch:flashAttivo}]});
+            const caps=videoTrack.getCapabilities();
+            if(!caps.torch){alert("Flash non supportato.");return;}
+            flashAttivo=!flashAttivo;
+            await videoTrack.applyConstraints({advanced:[{torch:flashAttivo}]});
             flashBtn.innerText=flashAttivo?"Spegni Flash 🚫":"Accendi Flash 🔦";
         }catch(e){console.error(e);}
     });
+
     function analizzaFotogrammi(){
         async function loop(){
             if(video.readyState===video.HAVE_ENOUGH_DATA&&detector){
-                try{const barcodes=await detector.detect(video);if(barcodes&&barcodes.length>0){gestisciCodiceLetto(barcodes[0].rawValue);}}catch(e){console.error(e);}
-            }requestAnimationFrame(loop);
-        }requestAnimationFrame(loop);
+                try{
+                    const barcodes=await detector.detect(video);
+                    if(barcodes&&barcodes.length>0){
+                        for(let i=0;i<barcodes.length;i++){
+                            if(barcodes[i].rawValue){
+                                gestisciCodiceLetto(barcodes[i].rawValue);
+                            }
+                        }
+                    }
+                }catch(e){console.error(e);}
+            }
+            requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
     }
+
     function gestisciCodiceLetto(decodedText){
         if(!decodedText||codiciScansionatiSessione.has(decodedText))return;
-        codiciScansionatiSessione.add(decodedText);codiciTarghettaCorrente.push(decodedText);
+        codiciScansionatiSessione.add(decodedText);
+        codiciTarghettaCorrente.push(decodedText);
         statusDiv.innerText=`Letto (${codiciTarghettaCorrente.length}): ${decodedText}`;
-        statusDiv.style.color="#27ae60";statusDiv.style.backgroundColor="#e8f5e9";
-        aggiornaSchermoAreaTesto();if(navigator.vibrate){navigator.vibrate(100);}
+        statusDiv.style.color="#27ae60";
+        statusDiv.style.backgroundColor="#e8f5e9";
+        aggiornaSchermoAreaTesto();
+        if(navigator.vibrate){navigator.vibrate(100);}
     }
+
     function aggiornaSchermoAreaTesto(){
-        let txt="";storicoTarghette.forEach(t=>{txt+=`--- TARGHETTA N. ${t.numero} ---\n`+t.codici.join('\n')+'\n\n';});
-        if(codiciTarghettaCorrente.length>0){txt+=`--- TARGHETTA N. ${contatoreTarghette} (Scansione...) ---\n`+codiciTarghettaCorrente.join('\n');}
-        barcodeList.value=txt;barcodeList.scrollTop=barcodeList.scrollHeight;
+        let txt="";
+        storicoTarghette.forEach(t=>{
+            txt+="--- TARGHETTA N. "+t.numero+" ---\n"+t.codici.join('\n')+'\n\n';
+        });
+        if(codiciTarghettaCorrente.length>0){
+            txt+="--- TARGHETTA N. "+contatoreTarghette+" (Scansione...) ---\n"+codiciTarghettaCorrente.join('\n');
+        }
+        barcodeList.value=txt;
+        barcodeList.scrollTop=barcodeList.scrollHeight;
     }
+
     function generaNomeFile(){
         const cat=categoryInput.value.trim().replace(/[^a-zA-Z0-9__-]/g,"_");
         return cat!==""?cat+".txt":"report_targhette.txt";
     }
+
     saveTagBtn.addEventListener('click',()=>{
         if(codiciTarghettaCorrente.length===0){alert('Nessun codice letto!');return;}
         storicoTarghette.push({numero:contatoreTarghette,codici:[...codiciTarghettaCorrente]});
-        contatoreTarghette++;codiciTarghettaCorrente=[];aggiornaSchermoAreaTesto();
+        contatoreTarghette++;
+        codiciTarghettaCorrente=[];
+        aggiornaSchermoAreaTesto();
         statusDiv.innerText="Targhetta salvata. Inquadra la N. "+contatoreTarghette;
-        statusDiv.style.color="#2e86de";statusDiv.style.backgroundColor="#ebf5fb";if(navigator.vibrate)navigator.vibrate();
+        statusDiv.style.color="#2e86de";
+        statusDiv.style.backgroundColor="#ebf5fb";
+        if(navigator.vibrate)navigator.vibrate();
     });
+
     deleteLastBtn.addEventListener('click',()=>{
         if(storicoTarghette.length===0){alert('Nessuna targhetta.');return;}
-        if(confirm(`Cancellare la Targhetta N. ${storicoTarghette.length}?`)){
-            const u=storicoTarghette.pop();u.codici.forEach(c=>codiciScansionatiSessione.delete(c));
-            contatoreTarghette=u.numero;aggiornaSchermoAreaTesto();
+        if(confirm("Cancellare la Targhetta N. "+storicoTarghette.length+"?")){
+            const u=storicoTarghette.pop();
+            u.codici.forEach(c=>codiciScansionatiSessione.delete(c));
+            contatoreTarghette=u.numero;
+            aggiornaSchermoAreaTesto();
             statusDiv.innerText="Rimossa. Ripeti la N. "+contatoreTarghette;
-            statusDiv.style.color="#c0392b";statusDiv.style.backgroundColor="#f9ebea";
+            statusDiv.style.color="#c0392b";
+            statusDiv.style.backgroundColor="#f9ebea";
         }
     });
+
     downloadBtn.addEventListener('click',()=>{
         if(storicoTarghette.length===0&&codiciTarghettaCorrente.length===0){alert('Nessun dato!');return;}
         const b=new Blob([barcodeList.value],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(b),l=document.createElement('a');
         l.href=url;l.download=generaNomeFile();document.body.appendChild(l);l.click();document.body.removeChild(l);URL.revokeObjectURL(url);
     });
+
     whatsappBtn.addEventListener('click',()=>{
         if(barcodeList.value.trim()===''){alert('Vuoto!');return;}
-        const tit=categoryInput.value.trim()!==""?`*Categoria: ${categoryInput.value.trim()}*\n\n`:"";
-        window.open(`https://whatsapp.com{encodeURIComponent(tit+barcodeList.value)}`,'_blank');
+        let categoriaTesto=categoryInput.value.trim();
+        let tit=categoriaTesto!==""?"*Categoria: "+categoriaTesto+"*\n\n":"";
+        let testoCompleto=tit+barcodeList.value;
+        let linkWhatsapp="https://whatsapp.com"+encodeURIComponent(testoCompleto);
+        window.open(linkWhatsapp,'_blank');
     });
+
     emailBtn.addEventListener('click',()=>{
         if(barcodeList.value.trim()===''){alert('Vuoto!');return;}
-        window.location.href=`mailto:?subject=${encodeURIComponent("Report: "+(categoryInput.value.trim()||"Standard"))}&body=${encodeURIComponent(barcodeList.value)}`;
+        let categoriaTesto=categoryInput.value.trim();
+        let subj="Report: "+(categoriaTesto||"Standard");
+        let linkEmail="mailto:?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(barcodeList.value);
+        window.location.href=linkEmail;
     });
+
     resetBtn.addEventListener('click',()=>{
         if(confirm('Azzerare tutto?')){
             barcodeList.value='';categoryInput.value='';codiciScansionatiSessione.clear();storicoTarghette=[];codiciTarghettaCorrente=[];contatoreTarghette=1;
             statusDiv.innerText="Pronto per Targhetta N. 1";statusDiv.style.color="#e67e22";statusDiv.style.backgroundColor="#fdf2e9";
         }
     });
+
     window.addEventListener('DOMContentLoaded',avviaFotocameraNativa);
 </script>
 </body>
