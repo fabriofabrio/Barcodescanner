@@ -2,260 +2,127 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
     <title>Lettore Logistica Pro</title>
     <style>
-        * { box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #f5f6fa;
-            margin: 0;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .container {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-            width: 100%;
-            max-width: 450px;
-            text-align: center;
-        }
-        h1 { color: #2f3640; margin: 0 0 15px 0; font-size: 20px; }
-        .video-wrapper {
-            width: 100%;
-            aspect-ratio: 4 / 3;
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-bottom: 10px;
-            position: relative;
-        }
-        #webcam { width: 100%; height: 100%; object-fit: cover; }
-        .status-box { font-size: 14px; color: #e67e22; margin-bottom: 15px; font-weight: bold; padding: 8px; background: #fdf2e9; border-radius: 6px; }
-        textarea { width: 100%; height: 160px; padding: 10px; border: 1px solid #dcdde1; border-radius: 6px; font-family: monospace; font-size: 14px; resize: none; background-color: #f8f9fa; margin-bottom: 15px; }
-        .btn { color: white; border: none; padding: 12px; font-size: 14px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 10px; transition: background-color 0.2s; text-transform: uppercase; }
-        #flash-btn { background-color: #f1c40f; color: #2c3e50; box-shadow: 0 2px 5px rgba(241, 196, 15, 0.3); }
-        #save-tag-btn { background-color: #2980b9; box-shadow: 0 2px 5px rgba(41, 128, 185, 0.3); }
-        #delete-last-btn { background-color: #e67e22; box-shadow: 0 2px 5px rgba(230, 126, 34, 0.3); }
-        #download-btn { background-color: #2ecc71; box-shadow: 0 2px 5px rgba(46, 204, 113, 0.3); }
-        #reset-btn { background-color: #e74c3c; box-shadow: 0 2px 5px rgba(231, 76, 60, 0.3); }
-        .btn:active { opacity: 0.9; }
+        *{box-sizing:border-box;}
+        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background-color:#f5f6fa;margin:0;padding:15px;display:flex;flex-direction:column;align-items:center;min-height:100vh;}
+        .container{background-color:#fff;padding:20px;border-radius:12px;box-shadow:0 4px 10px rgba(0,0,0,0.08);width:100%;max-width:450px;text-align:center;}
+        h1{color:#2f3640;margin:0 0 15px 0;font-size:20px;}
+        .input-group{margin-bottom:12px;text-align:left;}
+        .input-group label{font-size:13px;font-weight:bold;color:#57606f;display:block;margin-bottom:4px;}
+        .input-group input{width:100%;padding:10px;border:1px solid #ced6e0;border-radius:6px;font-size:14px;}
+        .video-wrapper{width:100%;aspect-ratio:4/3;background:#000;border-radius:8px;overflow:hidden;margin-bottom:10px;position:relative;}
+        #webcam{width:100%;height:100%;object-fit:cover;}
+        .status-box{font-size:14px;color Rama:#e67e22;margin-bottom:15px;font-weight:bold;padding:8px;background:#fdf2e9;border-radius:6px;}
+        textarea{width:100%;height:150px;padding:10px;border:1px solid #dcdde1;border-radius:6px;font-family:monospace;font-size:14px;resize:none;background-color:#f8f9fa;margin-bottom:15px;}
+        .btn{color:white;border:none;padding:12px;font-size:14px;border-radius:6px;cursor:pointer;width:100%;font-weight:bold;margin-bottom:10px;text-transform:uppercase;}
+        #flash-btn{background-color:#f1c40f;color:#2c3e50;}
+        #save-tag-btn{background-color:#2980b9;}
+        #delete-last-btn{background-color:#e67e22;}
+        #download-btn{background-color:#2ecc71;}
+        #whatsapp-btn{background-color:#075E54;}
+        #email-btn{background-color:#747d8c;}
+        #reset-btn{background-color:#e74c3c;}
     </style>
 </head>
 <body>
-
 <div class="container">
     <h1>Lettore Codici Logistica</h1>
-    <div class="video-wrapper">
-        <video id="webcam" autoplay playsinline muted></video>
+    <div class="input-group">
+        <label for="category-input">Categoria / Nome File (Opzionale)</label>
+        <input type="text" id="category-input" placeholder="Es: Lotto_A, Componenti_X..." autocomplete="off">
     </div>
-    
+    <div class="video-wrapper"><video id="webcam" autoplay playsinline muted></video></div>
     <button class="btn" id="flash-btn">Accendi Flash 🔦</button>
     <div id="status" class="status-box">Inizializzazione...</div>
-    
     <textarea id="barcode-list" readonly placeholder="I codici scansionati appariranno qui..."></textarea>
-    
     <button class="btn" id="save-tag-btn">Salva / Chiudi Targhetta</button>
     <button class="btn" id="delete-last-btn">Cancella Ultima Targhetta</button>
-    <button class="btn" id="download-btn">Scarica File TXT Finale</button>
+    <button class="btn" id="download-btn">Scarica File TXT</button>
+    <button class="btn" id="whatsapp-btn">Condividi su WhatsApp 💬</button>
+    <button class="btn" id="email-btn">Invia via Email ✉️</button>
     <button class="btn" id="reset-btn">Nuovo File (Azzera Tutto)</button>
 </div>
-
 <script>
-    const video = document.getElementById('webcam');
-    const barcodeList = document.getElementById('barcode-list');
-    const flashBtn = document.getElementById('flash-btn');
-    const saveTagBtn = document.getElementById('save-tag-btn');
-    const deleteLastBtn = document.getElementById('delete-last-btn');
-    const downloadBtn = document.getElementById('download-btn');
-    const resetBtn = document.getElementById('reset-btn');
-    const statusDiv = document.getElementById('status');
-    
-    let codiciScansionatiSessione = new Set();
-    let detector;
-    let videoTrack = null;
-    let flashAttivo = false;
-    
-    let contatoreTarghette = 1;
-    let storicoTarghette = [];
-    let codiciTarghettaCorrente = [];
-
-    if ('BarcodeDetector' in window) {
-        detector = new BarcodeDetector({
-            formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'qr_code', 'upc_a']
-        });
-    } else {
-        statusDiv.innerText = "Errore: Aggiorna Google Chrome.";
+    const video=document.getElementById('webcam'),barcodeList=document.getElementById('barcode-list'),categoryInput=document.getElementById('category-input'),flashBtn=document.getElementById('flash-btn'),saveTagBtn=document.getElementById('save-tag-btn'),deleteLastBtn=document.getElementById('delete-last-btn'),downloadBtn=document.getElementById('download-btn'),whatsappBtn=document.getElementById('whatsapp-btn'),emailBtn=document.getElementById('email-btn'),resetBtn=document.getElementById('reset-btn'),statusDiv=document.getElementById('status');
+    let codiciScansionatiSessione=new Set(),detector,videoTrack=null,flashAttivo=false,contatoreTarghette=1,storicoTarghette=[],codiciTarghettaCorrente=[];
+    if('BarcodeDetector' in window){detector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','qr_code','upc_a']});}else{statusDiv.innerText="Errore: Aggiorna Chrome.";}
+    async function avviaFotocameraNativa(){
+        try{
+            const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1280},height:{ideal:720}},audio:false});
+            video.srcObject=stream;if(stream.getVideoTracks().length>0){videoTrack=stream.getVideoTracks()[0];}
+            video.onloadedmetadata=()=>{statusDiv.innerText="Inquadra la TARGHETTA N. "+contatoreTarghette;statusDiv.style.color="#2e86de";statusDiv.style.backgroundColor="#ebf5fb";analizzaFotogrammi();};
+        }catch(err){statusDiv.innerText="Fotocamera bloccata. Chiudi altre app.";}
     }
-
-    async function avviaFotocameraNativa() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-                audio: false
-            });
-            video.srcObject = stream;
-            videoTrack = stream.getVideoTracks()[0];
-            
-            video.onloadedmetadata = () => {
-                statusDiv.innerText = "Inquadra la TARGHETTA N. " + contatoreTarghette;
-                statusDiv.style.color = "#2e86de";
-                statusDiv.style.backgroundColor = "#ebf5fb";
-                analizzaFotogrammi();
-            };
-        } catch (err) {
-            statusDiv.innerText = "Fotocamera bloccata. Chiudi altre app.";
-        }
+    flashBtn.addEventListener('click',async()=>{
+        if(!videoTrack)return;
+        try{
+            const caps=videoTrack.getCapabilities();if(!caps.torch){alert("Flash non supportato.");return;}
+            flashAttivo=!flashAttivo;await videoTrack.applyConstraints({advanced:[{torch:flashAttivo}]});
+            flashBtn.innerText=flashAttivo?"Spegni Flash 🚫":"Accendi Flash 🔦";
+        }catch(e){console.error(e);}
+    });
+    function analizzaFotogrammi(){
+        async function loop(){
+            if(video.readyState===video.HAVE_ENOUGH_DATA&&detector){
+                try{const barcodes=await detector.detect(video);if(barcodes&&barcodes.length>0){gestisciCodiceLetto(barcodes[0].rawValue);}}catch(e){console.error(e);}
+            }requestAnimationFrame(loop);
+        }requestAnimationFrame(loop);
     }
-
-    flashBtn.addEventListener('click', async () => {
-        if (!videoTrack) return;
-        try {
-            const capabilities = videoTrack.getCapabilities();
-            if (!capabilities.torch) {
-                alert("Flash non supportato su questa lente.");
-                return;
-            }
-            flashAttivo = !flashAttivo;
-            await videoTrack.applyConstraints({
-                advanced: [{ torch: flashAttivo }]
-            });
-            flashBtn.innerText = flashAttivo ? "Spegni Flash 🚫" : "Accendi Flash 🔦";
-        } catch (e) {
-            console.error(e);
+    function gestisciCodiceLetto(decodedText){
+        if(!decodedText||codiciScansionatiSessione.has(decodedText))return;
+        codiciScansionatiSessione.add(decodedText);codiciTarghettaCorrente.push(decodedText);
+        statusDiv.innerText=`Letto (${codiciTarghettaCorrente.length}): ${decodedText}`;
+        statusDiv.style.color="#27ae60";statusDiv.style.backgroundColor="#e8f5e9";
+        aggiornaSchermoAreaTesto();if(navigator.vibrate){navigator.vibrate(100);}
+    }
+    function aggiornaSchermoAreaTesto(){
+        let txt="";storicoTarghette.forEach(t=>{txt+=`--- TARGHETTA N. ${t.numero} ---\n`+t.codici.join('\n')+'\n\n';});
+        if(codiciTarghettaCorrente.length>0){txt+=`--- TARGHETTA N. ${contatoreTarghette} (Scansione...) ---\n`+codiciTarghettaCorrente.join('\n');}
+        barcodeList.value=txt;barcodeList.scrollTop=barcodeList.scrollHeight;
+    }
+    function generaNomeFile(){
+        const cat=categoryInput.value.trim().replace(/[^a-zA-Z0-9__-]/g,"_");
+        return cat!==""?cat+".txt":"report_targhette.txt";
+    }
+    saveTagBtn.addEventListener('click',()=>{
+        if(codiciTarghettaCorrente.length===0){alert('Nessun codice letto!');return;}
+        storicoTarghette.push({numero:contatoreTarghette,codici:[...codiciTarghettaCorrente]});
+        contatoreTarghette++;codiciTarghettaCorrente=[];aggiornaSchermoAreaTesto();
+        statusDiv.innerText="Targhetta salvata. Inquadra la N. "+contatoreTarghette;
+        statusDiv.style.color="#2e86de";statusDiv.style.backgroundColor="#ebf5fb";if(navigator.vibrate)navigator.vibrate();
+    });
+    deleteLastBtn.addEventListener('click',()=>{
+        if(storicoTarghette.length===0){alert('Nessuna targhetta.');return;}
+        if(confirm(`Cancellare la Targhetta N. ${storicoTarghette.length}?`)){
+            const u=storicoTarghette.pop();u.codici.forEach(c=>codiciScansionatiSessione.delete(c));
+            contatoreTarghette=u.numero;aggiornaSchermoAreaTesto();
+            statusDiv.innerText="Rimossa. Ripeti la N. "+contatoreTarghette;
+            statusDiv.style.color="#c0392b";statusDiv.style.backgroundColor="#f9ebea";
         }
     });
-
-    function analizzaFotogrammi() {
-        async function loop() {
-            if (video.readyState === video.HAVE_ENOUGH_DATA && detector) {
-                try {
-                    const barcodes = await detector.detect(video);
-                    if (barcodes && barcodes.length > 0) {
-                        gestisciCodiceLetto(barcodes[0].rawValue);
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
-            }
-            requestAnimationFrame(loop);
-        }
-        requestAnimationFrame(loop);
-    }
-
-    function gestisciCodiceLetto(decodedText) {
-        if (!decodedText) return;
-        if (codiciScansionatiSessione.has(decodedText)) return;
-
-        codiciScansionatiSessione.add(decodedText);
-        codiciTarghettaCorrente.push(decodedText);
-
-        statusDiv.innerText = `Letto (${codiciTarghettaCorrente.length}): ${decodedText}`;
-        statusDiv.style.color = "#27ae60";
-        statusDiv.style.backgroundColor = "#e8f5e9";
-
-        aggiornaSchermoAreaTesto();
-
-        if (navigator.vibrate) {
-            navigator.vibrate(100);
-        }
-    }
-
-    function aggiornaSchermoAreaTesto() {
-        let testoFinale = "";
-        
-        storicoTarghette.forEach(targhetta => {
-            testoFinale += `--- TARGHETTA N. ${targhetta.numero} ---\n`;
-            testoFinale += targhetta.codici.join('\n') + '\n\n';
-        });
-        
-        if (codiciTarghettaCorrente.length > 0) {
-            testoFinale += `--- TARGHETTA N. ${contatoreTarghette} (Scansione...) ---\n`;
-            testoFinale += codiciTarghettaCorrente.join('\n');
-        }
-        
-        barcodeList.value = testoFinale;
-        barcodeList.scrollTop = barcodeList.scrollHeight;
-    }
-
-    saveTagBtn.addEventListener('click', () => {
-        if (codiciTarghettaCorrente.length === 0) {
-            alert('Nessun codice letto!');
-            return;
-        }
-        
-        storicoTarghette.push({
-            numero: contatoreTarghette,
-            codici: [...codiciTarghettaCorrente]
-        });
-        
-        contatoreTarghette++;
-        codiciTarghettaCorrente = [];
-        aggiornaSchermoAreaTesto();
-        
-        statusDiv.innerText = "Targhetta salvata. Inquadra la N. " + contatoreTarghette;
-        statusDiv.style.color = "#2e86de";
-        statusDiv.style.backgroundColor = "#ebf5fb";
-        if (navigator.vibrate) navigator.vibrate();
+    downloadBtn.addEventListener('click',()=>{
+        if(storicoTarghette.length===0&&codiciTarghettaCorrente.length===0){alert('Nessun dato!');return;}
+        const b=new Blob([barcodeList.value],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(b),l=document.createElement('a');
+        l.href=url;l.download=generaNomeFile();document.body.appendChild(l);l.click();document.body.removeChild(l);URL.revokeObjectURL(url);
     });
-
-    deleteLastBtn.addEventListener('click', () => {
-        if (storicoTarghette.length === 0) {
-            alert('Nessuna targhetta salvata.');
-            return;
-        }
-        
-        if (confirm(`Cancellare la Targhetta N. ${storicoTarghette.length}?`)) {
-            const ultimaTarghettaRossa = storicoTarghette.pop();
-            ultimaTarghettaRossa.codici.forEach(codice => {
-                codiciScansionatiSessione.delete(codice);
-            });
-            
-            contatoreTarghette = ultimaTarghettaRossa.numero;
-            aggiornaSchermoAreaTesto();
-            
-            statusDiv.innerText = "Rimossa. Ripeti la N. " + contatoreTarghette;
-            statusDiv.style.color = "#c0392b";
-            statusDiv.style.backgroundColor = "#f9ebea";
+    whatsappBtn.addEventListener('click',()=>{
+        if(barcodeList.value.trim()===''){alert('Vuoto!');return;}
+        const tit=categoryInput.value.trim()!==""?`*Categoria: ${categoryInput.value.trim()}*\n\n`:"";
+        window.open(`https://whatsapp.com{encodeURIComponent(tit+barcodeList.value)}`,'_blank');
+    });
+    emailBtn.addEventListener('click',()=>{
+        if(barcodeList.value.trim()===''){alert('Vuoto!');return;}
+        window.location.href=`mailto:?subject=${encodeURIComponent("Report: "+(categoryInput.value.trim()||"Standard"))}&body=${encodeURIComponent(barcodeList.value)}`;
+    });
+    resetBtn.addEventListener('click',()=>{
+        if(confirm('Azzerare tutto?')){
+            barcodeList.value='';categoryInput.value='';codiciScansionatiSessione.clear();storicoTarghette=[];codiciTarghettaCorrente=[];contatoreTarghette=1;
+            statusDiv.innerText="Pronto per Targhetta N. 1";statusDiv.style.color="#e67e22";statusDiv.style.backgroundColor="#fdf2e9";
         }
     });
-
-    downloadBtn.addEventListener('click', () => {
-        if (storicoTarghette.length === 0 && codiciTarghettaCorrente.length === 0) {
-            alert('Nessun dato!');
-            return;
-        }
-        const blob = new Blob([barcodeList.value], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'report_targhette.txt';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    });
-
-    resetBtn.addEventListener('click', () => {
-        if (confirm('Azzerare tutto il file corrente?')) {
-            barcodeList.value = '';
-            codiciScansionatiSessione.clear();
-            storicoTarghette = [];
-            codiciTarghettaCorrente = [];
-            contatoreTarghette = 1;
-            statusDiv.innerText = "Pronto per Targhetta N. 1";
-            statusDiv.style.color = "#e67e22";
-            statusDiv.style.backgroundColor = "#fdf2e9";
-        }
-    });
-
-    window.addEventListener('DOMContentLoaded', avviaFotocameraNativa);
+    window.addEventListener('DOMContentLoaded',avviaFotocameraNativa);
 </script>
-
 </body>
 </html>
